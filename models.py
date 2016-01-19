@@ -110,9 +110,9 @@ class ConferenceQueryForms(messages.Message):
 
 class Session(ndb.Model):
     """Session -- Session object"""
-    name = ndb.StringProperty()
+    name = ndb.StringProperty(required=True)
     highlights = ndb.StringProperty()
-    speaker = ndb.StringProperty()
+    speaker = ndb.StringProperty(required=True)
     duration = ndb.StringProperty()
     sessionType = ndb.StringProperty()
     date = ndb.DateProperty()
@@ -127,4 +127,5 @@ class SessionForm(messages.Message):
     sessionType = messages.StringField(5)
     date = messages.StringField(6)
     startTime = messages.StringField(7) # 24 hour time
+    websafeKey = messages.StringField(8)
 

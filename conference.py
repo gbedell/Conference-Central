@@ -36,6 +36,8 @@ from models import ConferenceForms
 from models import ConferenceQueryForm
 from models import ConferenceQueryForms
 from models import TeeShirtSize
+from models import Session
+from models import SessionForm
 
 from settings import WEB_CLIENT_ID
 from settings import ANDROID_CLIENT_ID
@@ -56,6 +58,11 @@ DEFAULTS = {
     "maxAttendees": 0,
     "seatsAvailable": 0,
     "topics": [ "Default", "Topic" ],
+}
+
+SESSION_DEFAULTS = {
+    "highlights": "Default Highlight",
+    "sessionType": "Default Type",
 }
 
 OPERATORS = {
@@ -81,6 +88,17 @@ CONF_GET_REQUEST = endpoints.ResourceContainer(
 
 CONF_POST_REQUEST = endpoints.ResourceContainer(
     ConferenceForm,
+    websafeConferenceKey=messages.StringField(1),
+)
+
+# Session Requests
+SESSION_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeConferenceKey=messages.StringField(1),
+)
+
+SESSION_POST_REQUEST = endpoints.ResourceContainer(
+    SessionForm,
     websafeConferenceKey=messages.StringField(1),
 )
 
@@ -405,6 +423,56 @@ class ConferenceApi(remote.Service):
         return self._doProfile(request)
 
 
+# - - - Session Objects - - - - - - - - - - - - - - - - - - -
+
+    def _copySessionToForm(self, session):
+        """Copy relevant fields from Session to SessionForm."""
+        sf = SessionForm()
+        for field in sf.all_fields():
+            if hasattr(session, field.name):
+                setattr(sf, field.name, getattr(session, field.name))
+            elif field.name == "websafeKey":
+                setattr(sf, field.name, conf.key.urlsafe())
+        sf.check_initialized()
+        return sf
+
+    def _createSessionObject(self, request):
+        """Create or update Session object, returning SessionForm/request."""
+        # preload necessary data items
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+        if not request.name:
+            raise endpoints.BadRequestException("Session 'name' field required")
+
+        # copy SessionForm/ProtoRPC Message into dict
+        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
+        del data['websafeKey']
+
+        # Concert date from string type to date format
+        if data['date']:
+            data['date'] = datetime.strptime(data['date'][:10], "%Y-%m-%d").date()
+
+        # add default values for those missing (both data model & outbound Message)
+        for df in SESSION_DEFAULTS:
+            if data[df] in (None, []):
+                data[df] = SESSION_DEFAULTS[df]
+                setattr(request, df, SESSION_DEFAULTS[df])
+
+        # create Session
+        Session(**data).put()
+
+        return request
+
+    @endpoints.method(SessionForm, SessionForm, path='session',
+            http_method='POST', name='createSession')
+    def createSession(self, request):
+        """Create new session."""
+        return self._createSessionObject(request)
+
+
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -
 
     @staticmethod
@@ -549,6 +617,7 @@ class ConferenceApi(remote.Service):
         return ConferenceForms(
             items=[self._copyConferenceToForm(conf, "") for conf in q]
         )
+
 
 
 api = endpoints.api_server([ConferenceApi]) # register API
