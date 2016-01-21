@@ -447,11 +447,16 @@ class ConferenceApi(remote.Service):
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
 
+        # Get the existing conference
+        conf_key = ndb.Key(urlsafe=request.websafeKey)
+        conf = conf_key.get()
+
+
         # copy SessionForm/ProtoRPC Message into dict
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
         del data['websafeKey']
 
-        # Concert date from string type to date format
+        # Convert date from string type to date format
         if data['date']:
             data['date'] = datetime.strptime(data['date'][:10], "%Y-%m-%d").date()
 
@@ -460,6 +465,11 @@ class ConferenceApi(remote.Service):
             if data[df] in (None, []):
                 data[df] = SESSION_DEFAULTS[df]
                 setattr(request, df, SESSION_DEFAULTS[df])
+
+        # Generate Session Key based on Conference Key
+        s_id = Session.allocate_ids(size=1, parent=conf_key)[0]
+        s_key = ndb.Key(Session, s_id, parent=conf_key)
+        data['key'] = s_key
 
         # create Session
         Session(**data).put()
