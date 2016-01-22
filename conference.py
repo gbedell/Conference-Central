@@ -14,6 +14,7 @@ __author__ = 'wesc+api@google.com (Wesley Chun)'
 
 
 from datetime import datetime
+import time
 
 import endpoints
 from protorpc import messages
@@ -461,7 +462,12 @@ class ConferenceApi(remote.Service):
 
         # Convert date from string type to date format
         if data['date']:
+            conf_date = conf.date
             data['date'] = datetime.strptime(data['date'][:10], "%Y-%m-%d").date()
+
+        # Convert startTime from string type to time format
+        if data['startTime']:
+            data['startTime'] = datetime.strptime(data['startTime'][:10], '%H:%M:%S').time()
 
         # add default values for those missing (both data model & outbound Message)
         for df in SESSION_DEFAULTS:
