@@ -451,6 +451,9 @@ class ConferenceApi(remote.Service):
         conf_key = ndb.Key(urlsafe=request.websafeKey)
         conf = conf_key.get()
 
+        # If current User did not create the conference, user cannot create session
+        if conf.organizerUserId != user_id:
+            raise endpoints.UnauthorizedException('Must be the creator of the conference to make a session.')
 
         # copy SessionForm/ProtoRPC Message into dict
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
