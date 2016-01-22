@@ -39,6 +39,7 @@ from models import ConferenceQueryForms
 from models import TeeShirtSize
 from models import Session
 from models import SessionForm
+from models import SessionForms
 
 from settings import WEB_CLIENT_ID
 from settings import ANDROID_CLIENT_ID
@@ -431,11 +432,16 @@ class ConferenceApi(remote.Service):
         sf = SessionForm()
         for field in sf.all_fields():
             if hasattr(session, field.name):
-                setattr(sf, field.name, getattr(session, field.name))
+                # convert Date to date string; just copy others
+                if field.name.endswith('date') or field.name.endswith('startTime'):
+                    setattr(sf, field.name, str(getattr(session, field.name)))
+                else:
+                    setattr(sf, field.name, getattr(session, field.name))
             elif field.name == "websafeKey":
-                setattr(sf, field.name, conf.key.urlsafe())
+                setattr(sf, field.name, session.key.urlsafe())
         sf.check_initialized()
         return sf
+
 
     def _createSessionObject(self, request):
         """Create or update Session object, returning SessionForm/request."""
@@ -462,7 +468,6 @@ class ConferenceApi(remote.Service):
 
         # Convert date from string type to date format
         if data['date']:
-            conf_date = conf.date
             data['date'] = datetime.strptime(data['date'][:10], "%Y-%m-%d").date()
 
         # Convert startTime from string type to time format
@@ -491,6 +496,39 @@ class ConferenceApi(remote.Service):
         """Create new session."""
         return self._createSessionObject(request)
 
+
+    @endpoints.method(CONF_GET_REQUEST, SessionForms,
+            path='getConferenceSessions/{websafeConferenceKey}',
+            http_method='GET', name='getConferenceSessions')
+    def getConferenceSessions(self, request):
+        """Returns all sessions for the given conference."""
+        # make sure user is authed
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+        conf_key = ndb.Key(urlsafe=request.websafeConferenceKey)
+        sessions = Session.query(ancestor=conf_key).fetch()
+
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions]
+        )
+
+        # create ancestor query for all key matches for this user
+        # confs = Conference.query(ancestor=ndb.Key(Profile, user_id))
+        # prof = ndb.Key(Profile, user_id).get()
+
+        # create ancestor query for all key matches for this conference
+        # Get the existing conference
+        # conf_key = ndb.Key(urlsafe=request.websafeKey)
+        # conf_id = Conference.query()
+        # sessions = Session.query(ancestor=ndb.Key(Conference, conf_key))
+
+        # # return set of ConferenceForm objects per Conference
+        # return SessionForms(
+        #     items=[self._copySessionToForm(session) for session in sessions]
+        # )
 
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -
 
