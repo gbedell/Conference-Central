@@ -133,3 +133,7 @@ class SessionForms(messages.Message):
     """SessionsForms -- multiple Session outbound form message"""
     items = messages.MessageField(SessionForm, 1, repeated=True)
 
+class SessionTypeMiniForm(messages.Message):
+    """SessionMiniForm -- Session outbound form message"""
+    sessionType = messages.StringField(1)
+
