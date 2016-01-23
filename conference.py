@@ -766,8 +766,36 @@ class ConferenceApi(remote.Service):
 
         return BooleanMessage(data=retval)
 
+    @ndb.transactional(xg=True)
+    def _deleteFromUserWishlist(self, request):
+        """Deletes a session from a user's session wishlist"""
+        retval = None
+
+        # Get the user's profile
+        prof = self._getProfileFromUser()
+
+        # check if session exists given websafeSessionKey
+        websafeSessionKey = request.websafeSessionKey
+        session = ndb.Key(urlsafe=websafeSessionKey).get()
+
+        if not session:
+            raise endpoints.NotFoundException(
+                'No session found with key: %s' % websafeSessionKey)
+
+        if websafeSessionKey not in prof.wishlistSessionKeys:
+            raise endpoints.NotFoundException(
+                "This session is not on the user's wishlist.")
+
+        prof.wishlistSessionKeys.remove(websafeSessionKey)
+        retval = True
+
+        prof.put()
+
+        return BooleanMessage(data=retval)
+
+
     @endpoints.method(SESSION_POST_REQUEST, BooleanMessage,
-        path='session/{websafeSessionKey}',
+        path='session/addtowishlist/{websafeSessionKey}',
         http_method='POST', name='addSessionToWishlist')
     def addSessionToWishlist(self, request):
         """Add session to user's Wistlist"""
@@ -777,7 +805,7 @@ class ConferenceApi(remote.Service):
         path='sessions/wishlist',
         http_method='GET', name='getSessionsInWishlist')
     def getSessionsInWishlist(self, request):
-
+        """Get all sessions in a user's wishlist"""
         # Get the user's profile
         prof = self._getProfileFromUser()
 
@@ -786,6 +814,13 @@ class ConferenceApi(remote.Service):
 
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions])
+
+    @endpoints.method(SESSION_POST_REQUEST, BooleanMessage,
+        path='session/deletefromwishlist/{websafeSessionKey}',
+        http_method='POST', name='deleteSessionInWishlist')
+    def deleteSessionInWishlist(self, request):
+        """Delete session from user's wishlist"""
+        return self._deleteFromUserWishlist(request)
 
 
 
