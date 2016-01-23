@@ -110,6 +110,10 @@ class ConferenceQueryForms(messages.Message):
     """ConferenceQueryForms -- multiple ConferenceQueryForm inbound form message"""
     filters = messages.MessageField(ConferenceQueryForm, 1, repeated=True)
 
+class ConferenceTopicMiniForm(messages.Message):
+    """ConferenceTopicMiniForm -- Conference outbound form message"""
+    topic = messages.StringField(1)
+
 class Session(ndb.Model):
     """Session -- Session object"""
     name = ndb.StringProperty(required=True)

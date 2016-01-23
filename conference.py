@@ -42,6 +42,7 @@ from models import SessionForm
 from models import SessionForms
 from models import SessionTypeMiniForm
 from models import SessionSpeakerMiniForm
+from models import ConferenceTopicMiniForm
 
 from settings import WEB_CLIENT_ID
 from settings import ANDROID_CLIENT_ID
@@ -95,7 +96,11 @@ CONF_POST_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1),
 )
 
-# Session Requests
+CONF_TOPIC_GET_REQUEST = endpoints.ResourceContainer(
+    ConferenceTopicMiniForm,
+    topic=messages.StringField(1),
+)
+
 SESSION_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeConferenceKey=messages.StringField(1),
@@ -359,6 +364,29 @@ class ConferenceApi(remote.Service):
                 items=[self._copyConferenceToForm(conf, names[conf.organizerUserId]) for conf in \
                 conferences]
         )
+
+    @endpoints.method(CONF_TOPIC_GET_REQUEST, ConferenceForms,
+            path='getConferencesByTopic/{topic}',
+            http_method='GET', name='getConferencesByTopic')
+    def getConferencesByTopic(self, request):
+        """Returns all conferences with a given topic"""
+        # Get user info
+        user = endpoints.get_current_user()
+        user_id = getUserId(user)
+        prof = ndb.Key(Profile, user_id).get()
+
+        topic = request.topic
+
+        conferences = Conference.query()
+
+        conferences = conferences.filter(Conference.topics==topic)
+
+        if not conferences.get():
+            raise endpoints.NotFoundException(
+                'There are no conferences with the topic: %s' % topic)
+
+        return ConferenceForms(
+            items=[self._copyConferenceToForm(conference, getattr(prof, 'displayName')) for conference in conferences])
 
 
 # - - - Profile objects - - - - - - - - - - - - - - - - - - -
