@@ -137,3 +137,7 @@ class SessionTypeMiniForm(messages.Message):
     """SessionMiniForm -- Session outbound form message"""
     sessionType = messages.StringField(1)
 
+class SessionSpeakerMiniForm(messages.Message):
+    """SessionSpeakerMiniForm -- Session outbound form message"""
+    speaker = messages.StringField(1)
+

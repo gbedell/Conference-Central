@@ -41,6 +41,7 @@ from models import Session
 from models import SessionForm
 from models import SessionForms
 from models import SessionTypeMiniForm
+from models import SessionSpeakerMiniForm
 
 from settings import WEB_CLIENT_ID
 from settings import ANDROID_CLIENT_ID
@@ -109,6 +110,11 @@ SESSION_TYPE_GET_REQUEST = endpoints.ResourceContainer(
 SESSION_POST_REQUEST = endpoints.ResourceContainer(
     SessionForm,
     websafeConferenceKey=messages.StringField(1),
+)
+
+SESSION_SPEAKER_GET_REQUEST = endpoints.ResourceContainer(
+    SessionSpeakerMiniForm,
+    speaker=messages.StringField(1),
 )
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -529,16 +535,6 @@ class ConferenceApi(remote.Service):
             http_method='GET', name='getConferenceSessionsByType')
     def getConferenceSessionsByType(self, request):
         """Returns all sessions for a given conference and session type."""
-
-
-        # conf_key = ndb.Key(urlsafe=request.websafeConferenceKey)
-        # session_type = request.sessionType
-
-        # sessions = Session.query(ancestor=conf_key, sessionType=session_type).fetch()
-
-        # return SessionForms(
-        #     items=[self._copySessionToForm(session) for session in sessions]
-        # )
     
         websafeConferenceKey = request.websafeConferenceKey
         conf_key = ndb.Key(urlsafe=websafeConferenceKey)
@@ -569,6 +565,26 @@ class ConferenceApi(remote.Service):
 
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions])
+
+
+    @endpoints.method(SESSION_SPEAKER_GET_REQUEST, SessionForms,
+            path='getSessionsBySpeaker/{speaker}',
+            http_method='GET', name='getSessionsBySpeaker')
+    def getSessionsBySpeaker(self, request):
+        """Returns all sessions for a given speaker"""
+
+        speaker = request.speaker
+
+        sessions = Session.query()
+        sessions = sessions.filter(Session.speaker==speaker)
+
+        if not sessions.get():
+            raise endpoints.NotFoundException(
+                'No sessions found with speaker: %s' % speaker)
+
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions])
+
 
 
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -
