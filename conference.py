@@ -618,6 +618,23 @@ class ConferenceApi(remote.Service):
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions])
 
+    @endpoints.method(message_types.VoidMessage, SessionForms,
+            path='getSessionsSortedByDuration',
+            http_method='GET', name='getSessionsSortedByDuration')
+    def getSessionsSortedByDuration(self, request):
+        """Returns all sessioned sorted by longest to shortest"""
+
+        sessions = Session.query()
+
+        if not sessions.get():
+            raise endpoints.NotFoundException(
+                'No sessions found within application.')
+
+        sessions = sessions.order(-Session.duration)
+
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions])
+
 
 
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -
