@@ -43,6 +43,7 @@ from models import SessionForms
 from models import SessionTypeMiniForm
 from models import SessionSpeakerMiniForm
 from models import ConferenceTopicMiniForm
+from models import FeaturedSpeakerForm
 
 from settings import WEB_CLIENT_ID
 from settings import ANDROID_CLIENT_ID
@@ -51,11 +52,14 @@ from settings import ANDROID_AUDIENCE
 
 from utils import getUserId
 
+import collections
+
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
 MEMCACHE_ANNOUNCEMENTS_KEY = "RECENT_ANNOUNCEMENTS"
 ANNOUNCEMENT_TPL = ('Last chance to attend! The following conferences '
                     'are nearly sold out: %s')
+MEMCACHE_FEATURED_SPEAKER_KEY = 'FEATURED SPEAKER'
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 DEFAULTS = {
@@ -468,6 +472,7 @@ class ConferenceApi(remote.Service):
 
 # - - - Session Objects - - - - - - - - - - - - - - - - - - -
 
+
     def _copySessionToForm(self, session):
         """Copy relevant fields from Session to SessionForm."""
         sf = SessionForm()
@@ -529,6 +534,13 @@ class ConferenceApi(remote.Service):
 
         # create Session
         Session(**data).put()
+
+        # Send task for featured speaker to taskqueue
+        taskqueue.add(
+            params={'websafeConferenceKey': request.websafeKey},
+            url='/tasks/get_featured_speaker',
+            method='GET'
+            )
 
         return request
 
@@ -635,6 +647,45 @@ class ConferenceApi(remote.Service):
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions])
 
+
+    @endpoints.method(message_types.VoidMessage, FeaturedSpeakerForm,
+            path='getFeaturedSpeaker',
+            http_method='GET', name='getFeaturedSpeaker')
+    def getFeaturedSpeaker(self, request):
+        """Returns the current featured speaker"""
+
+        # Retrieve featured speaker from memcache
+        featured_speaker = memcache.get(MEMCACHE_FEATURED_SPEAKER_KEY)
+
+        return FeaturedSpeakerForm(
+            speaker=featured_speaker or "Not designated")
+
+    @staticmethod
+    def _cacheFeaturedSpeaker(websafeConferenceKey):
+        """Create Featured Speaker and assign to Memcache"""
+
+        # returns Conference Key
+        conference_key = ndb.Key(urlsafe=websafeConferenceKey)
+        conf = conference_key.get()
+
+        # check if there is a conference associated with conference key
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found for the key: %s' % request.websafeConferenceKey
+            )
+
+        # find all sessions of the given conference
+        sessions = Session.query(ancestor=conference_key)
+
+        # Review all speakers in given conference sessions and find most common speakers
+        speakers = []
+        for session in sessions:
+            if getattr(session, 'speaker') != '':
+                speakers.append(getattr(session, 'speaker'))
+        frequent_speaker = collections.Counter(speakers).most_common()
+
+        #save featured speaker to memcache
+        memcache.set(key=MEMCACHE_FEATURED_SPEAKER_KEY, value=str(frequent_speaker[0][0]))
 
 
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -
