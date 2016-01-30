@@ -30,3 +30,11 @@ App Engine application for the Udacity training course.
 [4]: https://console.developers.google.com/
 [5]: https://localhost:8080/
 [6]: https://developers.google.com/appengine/docs/python/endpoints/endpoints_tool
+
+## Task 3: Query Problem
+
+The problem with this specific query is that it's an inequality query that has two unique properties. The Datastore only supports inequality queries with one property. 
+
+The first property is the startTime before 7pm, and the second property is NOT being a workshop. Because of Datastore limitations, both of these properties cannot be used in the same query.
+
+One way to work around this limitation is two use two separate queries. For example, in the first query, you could get all sessions that are not workshops. From the first query, you could then query each non-workshop session to see if the startTime is before 7pm. The result would be all non-workshop sessions before 7pm.

@@ -535,7 +535,7 @@ class ConferenceApi(remote.Service):
         # create Session
         Session(**data).put()
 
-        # Send task for featured speaker to taskqueue
+        # Sends a task to the taskqueue to get the featured speaker
         taskqueue.add(
             params={'websafeConferenceKey': request.websafeKey},
             url='/tasks/get_featured_speaker',
@@ -664,27 +664,28 @@ class ConferenceApi(remote.Service):
     def _cacheFeaturedSpeaker(websafeConferenceKey):
         """Create Featured Speaker and assign to Memcache"""
 
-        # returns Conference Key
+        # Get the conference key
         conference_key = ndb.Key(urlsafe=websafeConferenceKey)
         conf = conference_key.get()
 
-        # check if there is a conference associated with conference key
+        # If there is no conference associated with the key, return NotFoundException
         if not conf:
             raise endpoints.NotFoundException(
                 'No conference found for the key: %s' % request.websafeConferenceKey
             )
 
-        # find all sessions of the given conference
+        # Find all of the sessions for the given conference
         sessions = Session.query(ancestor=conference_key)
 
-        # Review all speakers in given conference sessions and find most common speakers
+        # Counts the number of occurences of each speaker in the conference sessions
+        # Returns the most common speaker at the most frequent speaker
         speakers = []
         for session in sessions:
             if getattr(session, 'speaker') != '':
                 speakers.append(getattr(session, 'speaker'))
         frequent_speaker = collections.Counter(speakers).most_common()
 
-        #save featured speaker to memcache
+        # Saves the most frequent speaker as the new featured speaker in the Memcache
         memcache.set(key=MEMCACHE_FEATURED_SPEAKER_KEY, value=str(frequent_speaker[0][0]))
 
 
