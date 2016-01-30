@@ -117,13 +117,12 @@ SESSION_TYPE_GET_REQUEST = endpoints.ResourceContainer(
 )
 
 SESSION_POST_REQUEST = endpoints.ResourceContainer(
-    SessionForm,
     websafeSessionKey=messages.StringField(1),
 )
 
 SESSION_SPEAKER_GET_REQUEST = endpoints.ResourceContainer(
     SessionSpeakerMiniForm,
-    speaker=messages.StringField(1),
+    speakerName=messages.StringField(1),
 )
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -505,7 +504,7 @@ class ConferenceApi(remote.Service):
             raise endpoints.BadRequestException("Session 'speakerName' field is required.")
 
         # Get the existing conference
-        conf_key = ndb.Key(urlsafe=request.websafeKey)
+        conf_key = ndb.Key(urlsafe=request.websafeConferenceKey)
         conf = conf_key.get()
 
         # If current User did not create the conference, user cannot create session
@@ -514,7 +513,7 @@ class ConferenceApi(remote.Service):
 
         # copy SessionForm/ProtoRPC Message into dict
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
-        del data['websafeKey']
+        del data['websafeConferenceKey']
 
         # Convert date from string type to date format
         if data['date']:
@@ -611,12 +610,12 @@ class ConferenceApi(remote.Service):
 
 
     @endpoints.method(SESSION_SPEAKER_GET_REQUEST, SessionForms,
-            path='getSessionsBySpeaker/{speaker}',
+            path='getSessionsBySpeaker/{speakerName}',
             http_method='GET', name='getSessionsBySpeaker')
     def getSessionsBySpeaker(self, request):
         """Returns all sessions for a given speaker"""
 
-        speaker = request.speaker
+        speaker = request.speakerName
 
         sessions = Session.query()
 
@@ -624,7 +623,7 @@ class ConferenceApi(remote.Service):
             raise endpoints.NotFoundException(
                 'No sessions found within application.')
 
-        sessions = sessions.filter(Session.speaker==speaker)
+        sessions = sessions.filter(Session.speakerName==speaker)
 
         if not sessions.get():
             raise endpoints.NotFoundException(
@@ -650,6 +649,20 @@ class ConferenceApi(remote.Service):
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions])
 
+    @endpoints.method(SESSION_GET_REQUEST, SessionForm,
+            path='getEarliestConferenceSession/{websafeConferenceKey}',
+            http_method='GET', name='getEarliestConferenceSession')
+    def getEarliestConferenceSession(self, request):
+        """Returns the earliest session for a given conference"""
+
+        conf_key = ndb.Key(urlsafe=request.websafeConferenceKey)
+        sessions = Session.query(ancestor=conf_key)
+        sessions = sessions.order(-Session.startTime)
+        earliest_session = sessions.get()
+        
+
+        return self._copySessionToForm(earliest_session)
+
 
     @endpoints.method(message_types.VoidMessage, FeaturedSpeakerForm,
             path='getFeaturedSpeaker',
@@ -661,7 +674,7 @@ class ConferenceApi(remote.Service):
         featured_speaker = memcache.get(MEMCACHE_FEATURED_SPEAKER_KEY)
 
         return FeaturedSpeakerForm(
-            speaker=featured_speaker or "Not designated")
+            speakerName=featured_speaker or "Not designated")
 
     @staticmethod
     def _cacheFeaturedSpeaker(websafeConferenceKey):
@@ -684,8 +697,8 @@ class ConferenceApi(remote.Service):
         # Returns the most common speaker at the most frequent speaker
         speakers = []
         for session in sessions:
-            if getattr(session, 'speaker') != '':
-                speakers.append(getattr(session, 'speaker'))
+            if getattr(session, 'speakerName') != '':
+                speakers.append(getattr(session, 'speakerName'))
         frequent_speaker = collections.Counter(speakers).most_common()
 
         # Saves the most frequent speaker as the new featured speaker in the Memcache
