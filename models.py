@@ -118,7 +118,7 @@ class Session(ndb.Model):
     """Session -- Session object"""
     name = ndb.StringProperty(required=True)
     highlights = ndb.StringProperty()
-    speaker = ndb.StringProperty(required=True)
+    speakerName = ndb.StringProperty(required=True)
     duration = ndb.IntegerProperty() # in minutes
     sessionType = ndb.StringProperty()
     date = ndb.DateProperty()
@@ -128,12 +128,12 @@ class SessionForm(messages.Message):
     """SessionForm -- Session outbound form message"""
     name = messages.StringField(1)
     highlights = messages.StringField(2)
-    speaker = messages.StringField(3)
+    speakerName = messages.StringField(3)
     duration = messages.IntegerField(4) # in minutes
     sessionType = messages.StringField(5)
     date = messages.StringField(6)
     startTime = messages.StringField(7) # 24 hour time
-    websafeKey = messages.StringField(8)
+    websafeConferenceKey = messages.StringField(8)
 
 class SessionForms(messages.Message):
     """SessionsForms -- multiple Session outbound form message"""
@@ -148,5 +148,5 @@ class SessionSpeakerMiniForm(messages.Message):
     speaker = messages.StringField(1)
 
 class FeaturedSpeakerForm(messages.Message):
-    speaker = messages.StringField(1)
+    speaker = messages.StringField(1, repeated=True)
 

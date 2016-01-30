@@ -40,7 +40,7 @@ handlers:       # static then dynamic
   script: conference.api
   secure: always
 
-- url: /tasks/get_featured_speaker
+- url: /tasks/set_featured_speaker
   script: main.app
   login: admin
 

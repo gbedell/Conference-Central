@@ -479,11 +479,11 @@ class ConferenceApi(remote.Service):
         for field in sf.all_fields():
             if hasattr(session, field.name):
                 # convert Date to date string; just copy others
-                if field.name.endswith('date') or field.name.endswith('startTime'):
+                if field.name in ['date', 'startTime']:
                     setattr(sf, field.name, str(getattr(session, field.name)))
                 else:
                     setattr(sf, field.name, getattr(session, field.name))
-            elif field.name == "websafeKey":
+            elif field.name == "websafeConferenceKey":
                 setattr(sf, field.name, session.key.urlsafe())
 
         sf.check_initialized()
@@ -499,7 +499,10 @@ class ConferenceApi(remote.Service):
         user_id = getUserId(user)
 
         if not request.name:
-            raise endpoints.BadRequestException("Session 'name' field required")
+            raise endpoints.BadRequestException("Session 'name' field required.")
+
+        if not request.speakerName:
+            raise endpoints.BadRequestException("Session 'speakerName' field is required.")
 
         # Get the existing conference
         conf_key = ndb.Key(urlsafe=request.websafeKey)
@@ -519,7 +522,7 @@ class ConferenceApi(remote.Service):
 
         # Convert startTime from string type to time format
         if data['startTime']:
-            data['startTime'] = datetime.strptime(data['startTime'][:10], '%H:%M:%S').time()
+            data['startTime'] = datetime.strptime(data['startTime'][:10], '%H:%M').time()
 
         # add default values for those missing (both data model & outbound Message)
         for df in SESSION_DEFAULTS:
@@ -537,8 +540,8 @@ class ConferenceApi(remote.Service):
 
         # Sends task to the taskqueue to possibly add as new featured speaker
         taskqueue.add(
-            params={'websafeConferenceKey': request.websafeKey},
-            url='/tasks/get_featured_speaker',
+            params={'websafeConferenceKey': request.websafeConferenceKey},
+            url='/tasks/set_featured_speaker',
             method='GET'
             )
 
