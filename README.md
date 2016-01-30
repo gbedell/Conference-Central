@@ -31,9 +31,21 @@ App Engine application for the Udacity training course.
 [5]: https://localhost:8080/
 [6]: https://developers.google.com/appengine/docs/python/endpoints/endpoints_tool
 
+
+## Task 1: Design Choices
+
+Individual conference sessions and their corresponding speakers are created using the createSession endpoint. To create a session, simply nagivate to the createSession endpoint from the
+API Explorer. Next, in the Request body box, click and enter values for each field. For the websafeKey, enter the websafeKey of the conference you wish to create a session for. This can be found in the URL for that specific conference when viewing the conference page on the application.
+
+When entering the date, be sure to format like YYYY-MM-DD. This makes it possible to sort the sessions by date. For the startTime, be sure to format like HH:MM:SS, also so that it makes it possibly to sort by time. Lastly, be sure to enter the duration in minutes.
+
+
 ## Task 3: Query Problem
 
-The problem with this specific query is that it's an inequality query that has two unique properties. The Datastore only supports inequality queries with one property. 
+The two additional queries I implemented are getSessionsBySpeaker and getSessionsSortedByDuration. The first is useful if you are interested in what sessions a specific speaker is speaking in. If they are speaking in more than one, someone may want to see all of their speaking sessions. getSessionsSortedByDuration returns a list of all sessions sorted by their duration, descending. This is helpful to see the longest sessions in the application.
+
+
+The problem with the provided query is that it's an inequality query that has two unique properties. The Datastore only supports inequality queries with one property. 
 
 The first property is the startTime before 7pm, and the second property is NOT being a workshop. Because of Datastore limitations, both of these properties cannot be used in the same query.
 
