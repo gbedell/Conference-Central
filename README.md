@@ -42,7 +42,7 @@ When entering the date, be sure to format like YYYY-MM-DD. This makes it possibl
 
 ## Task 3: Query Problem
 
-The two additional queries I implemented are getSessionsBySpeaker and getSessionsSortedByDuration. The first is useful if you are interested in what sessions a specific speaker is speaking in. If they are speaking in more than one, someone may want to see all of their speaking sessions. getSessionsSortedByDuration returns a list of all sessions sorted by their duration, descending. This is helpful to see the longest sessions in the application.
+The two additional queries I implemented are getSessionsSortedByDuration and getEarliestConferenceSession. getSessionsSortedByDuration returns a list of all sessions sorted by their duration, descending. This is helpful to see the longest sessions in the application. getEarliestConferenceSession returns the earliest session for a given conference. This is a good way to see what time the conference starts on a day.
 
 
 The problem with the provided query is that it's an inequality query that has two unique properties. The Datastore only supports inequality queries with one property. 
