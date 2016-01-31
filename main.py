@@ -41,7 +41,8 @@ class SetFeaturedSpeaker(webapp2.RequestHandler):
     def get(self):
         """Get featured speaker"""
         ConferenceApi._cacheFeaturedSpeaker(
-            self.request.get('websafeConferenceKey')
+            # self.request.get('websafeSessionKey')
+            self.request.get('sessionKey')
             )
         self.response.set_status(204)
 

@@ -532,14 +532,14 @@ class ConferenceApi(remote.Service):
         # Generate Session Key based on Conference Key
         s_id = Session.allocate_ids(size=1, parent=conf_key)[0]
         s_key = ndb.Key(Session, s_id, parent=conf_key)
+        print s_key
         data['key'] = s_key
 
         # create Session
         Session(**data).put()
 
-        # Sends task to the taskqueue to possibly add as new featured speaker
         taskqueue.add(
-            params={'websafeConferenceKey': request.websafeConferenceKey},
+            params={'sessionKey': s_key.urlsafe()},
             url='/tasks/set_featured_speaker',
             method='GET'
             )
@@ -656,11 +656,14 @@ class ConferenceApi(remote.Service):
         """Returns the earliest session for a given conference"""
 
         conf_key = ndb.Key(urlsafe=request.websafeConferenceKey)
+
+        # Get all of the sessions for the conference
         sessions = Session.query(ancestor=conf_key)
+        # Order the sessions by startTime (earliest to latest)
         sessions = sessions.order(-Session.startTime)
+        # Get the first session (earliest)
         earliest_session = sessions.get()
         
-
         return self._copySessionToForm(earliest_session)
 
 
@@ -673,36 +676,40 @@ class ConferenceApi(remote.Service):
         # Retrieve featured speaker from memcache
         featured_speaker = memcache.get(MEMCACHE_FEATURED_SPEAKER_KEY)
 
+        sessions = Session.query(Session.speakerName==featured_speaker).fetch()
+
+        session_names = []
+        for session in sessions:
+            session_names.append(session.name)
+
         return FeaturedSpeakerForm(
-            speakerName=featured_speaker or "Not designated")
+            speakerName=featured_speaker or "Not designated",
+            name=session_names)
+
 
     @staticmethod
-    def _cacheFeaturedSpeaker(websafeConferenceKey):
+    def _cacheFeaturedSpeaker(sessionKey):
         """Create Featured Speaker and assign to Memcache"""
 
-        # Get the conference key
-        conference_key = ndb.Key(urlsafe=websafeConferenceKey)
-        conf = conference_key.get()
+        session_key = ndb.Key(urlsafe=sessionKey)
 
-        # If there is no conference associated with the key, return NotFoundException
-        if not conf:
-            raise endpoints.NotFoundException(
-                'No conference found for the key: %s' % request.websafeConferenceKey
-            )
+        session = session_key.get()
 
-        # Find all of the sessions for the given conference
-        sessions = Session.query(ancestor=conference_key)
+        speakerName = session.speakerName
 
-        # Counts the number of occurences of each speaker in the conference sessions
-        # Returns the most common speaker at the most frequent speaker
-        speakers = []
-        for session in sessions:
-            if getattr(session, 'speakerName') != '':
-                speakers.append(getattr(session, 'speakerName'))
-        frequent_speaker = collections.Counter(speakers).most_common()
+        # Get conference information from session key
+        c_key = session_key.parent()
 
-        # Saves the most frequent speaker as the new featured speaker in the Memcache
-        memcache.set(key=MEMCACHE_FEATURED_SPEAKER_KEY, value=str(frequent_speaker[0][0]))
+        # Get all conference sessions given key
+        sessions = Session.query(ancestor=c_key)
+
+        # Get all conference sessions with given speakerName
+        sessions = sessions.filter(Session.speakerName==speakerName).fetch()
+
+        if len(sessions) > 1:
+            memcache.set(key=MEMCACHE_FEATURED_SPEAKER_KEY, value=speakerName)
+
+
 
 
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -

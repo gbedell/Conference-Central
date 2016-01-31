@@ -149,4 +149,5 @@ class SessionSpeakerMiniForm(messages.Message):
 
 class FeaturedSpeakerForm(messages.Message):
     speakerName = messages.StringField(1)
+    name = messages.StringField(2, repeated=True)
 
