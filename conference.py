@@ -483,6 +483,8 @@ class ConferenceApi(remote.Service):
                 else:
                     setattr(sf, field.name, getattr(session, field.name))
             elif field.name == "websafeConferenceKey":
+                setattr(sf, field.name, session.key.parent().urlsafe())
+            elif field.name == "websafeSessionKey":
                 setattr(sf, field.name, session.key.urlsafe())
 
         sf.check_initialized()
@@ -514,6 +516,7 @@ class ConferenceApi(remote.Service):
         # copy SessionForm/ProtoRPC Message into dict
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
         del data['websafeConferenceKey']
+        del data['websafeSessionKey']
 
         # Convert date from string type to date format
         if data['date']:
@@ -521,7 +524,7 @@ class ConferenceApi(remote.Service):
 
         # Convert startTime from string type to time format
         if data['startTime']:
-            data['startTime'] = datetime.strptime(data['startTime'][:10], '%H:%M').time()
+            data['startTime'] = datetime.strptime(data['startTime'][:5], '%H:%M').time()
 
         # add default values for those missing (both data model & outbound Message)
         for df in SESSION_DEFAULTS:
@@ -535,8 +538,11 @@ class ConferenceApi(remote.Service):
         print s_key
         data['key'] = s_key
 
-        # create Session
-        Session(**data).put()
+        # create session
+        newSession = Session(**data)
+
+        # Save session
+        newSession.put()
 
         taskqueue.add(
             params={'sessionKey': s_key.urlsafe()},
@@ -544,7 +550,8 @@ class ConferenceApi(remote.Service):
             method='GET'
             )
 
-        return request
+        # Return SessionForm back to user
+        return self._copySessionToForm(newSession)
 
     @endpoints.method(SessionForm, SessionForm, path='session',
             http_method='POST', name='createSession')
@@ -674,41 +681,46 @@ class ConferenceApi(remote.Service):
         """Returns the current featured speaker"""
 
         # Retrieve featured speaker from memcache
-        featured_speaker = memcache.get(MEMCACHE_FEATURED_SPEAKER_KEY)
+        message = memcache.get(MEMCACHE_FEATURED_SPEAKER_KEY)
 
-        sessions = Session.query(Session.speakerName==featured_speaker).fetch()
+        if not message:
+            message = FeaturedSpeakerForm()
 
-        session_names = []
-        for session in sessions:
-            session_names.append(session.name)
-
-        return FeaturedSpeakerForm(
-            speakerName=featured_speaker or "Not designated",
-            name=session_names)
+        return message
 
 
     @staticmethod
     def _cacheFeaturedSpeaker(sessionKey):
         """Create Featured Speaker and assign to Memcache"""
 
+        # Retrieve for key Session
         session_key = ndb.Key(urlsafe=sessionKey)
 
+        # Retrieve session based on key
         session = session_key.get()
 
+        # Retrieve speaker name for the session
         speakerName = session.speakerName
 
         # Get conference information from session key
         c_key = session_key.parent()
 
-        # Get all conference sessions given key
-        sessions = Session.query(ancestor=c_key)
+        # Query sessions
+        # Filter sessions with the same parent using ancestor relationship
+        # Filter sessions based on speakerName
+        q = Session.query(ancestor=c_key)
+        q = q.filter(Session.speakerName == speakerName)
 
-        # Get all conference sessions with given speakerName
-        sessions = sessions.filter(Session.speakerName==speakerName).fetch()
+        # Get number of sessions returned by the query filter
+        number_of_sessions = q.count()
 
-        if len(sessions) > 1:
-            memcache.set(key=MEMCACHE_FEATURED_SPEAKER_KEY, value=speakerName)
+        if number_of_sessions > 1:
+            message = FeaturedSpeakerForm()
+            message.speakerName = speakerName
+            message.name = [session.speakerName for session in q]
 
+            # Set message inside memcache
+            memcache.set(key=MEMCACHE_FEATURED_SPEAKER_KEY, value=message)
 
 
 
